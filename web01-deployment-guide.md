@@ -199,7 +199,7 @@ webservers = {
     id = 1;
     setup = false;  # false = full services, true = basic infrastructure only
     arch = "x86_64-linux";
-    description = "Peer Observer Dashboard - HackNodes Lab";
+    description = "Peer Observer Dashboard - yourdomain Lab";
     domain = "observer.yourdomain.xyz";
 
     wireguard = {
@@ -207,14 +207,14 @@ webservers = {
       pubkey = "IByMint...............";
     };
 
-    grafana.admin_user = "ifuensan";
+    grafana.admin_user = "youruser";
     
     access_DANGER = "LIMITED_ACCESS";  # or "FULL_ACCESS" for public demo
 
     index = {
       limitedAccessNotice = ''
         <div class="alert alert-info" role="alert">
-          <h2>🔒 HackNodes Lab - Peer Observer</h2>
+          <h2>🔒 yourdomain Lab - Peer Observer</h2>
           <p><strong>Bitcoin Network Monitoring Dashboard</strong></p>
           <p>Real-time insights into Bitcoin P2P network behavior.</p>
         </div>
@@ -319,7 +319,7 @@ Or configure `~/.ssh/config`:
 ```bash
 Host web01
     HostName 3.214.XXX.XXX
-    User ifuensan
+    User youruser
     IdentityFile ~/.ssh/peer-observer-key.pem
 ```
 
@@ -332,7 +332,7 @@ nix run github:nix-community/nixos-anywhere -- \
   --flake .#web01 \
   --build-on-remote \
   root@3.214.15.113 \
-  --ssh-option "IdentityFile=/home/ifuensan/.ssh/peer-observer-key.pem"
+  --ssh-option "IdentityFile=/home/youruser/.ssh/peer-observer-key.pem"
 ```
 
 **What happens:**
@@ -539,6 +539,148 @@ systemctl status <changed-service>
    - Configure `access_DANGER = "LIMITED_ACCESS"` for production
    - Use strong Grafana admin password
    - Regularly update NixOS: `nix flake update && deploy web01`
+
+---
+## Accessing Advanced Features
+
+### Public Dashboard (No Authentication Required)
+
+The main dashboard is publicly accessible:
+```
+https://observer.yourdomain.xyz
+```
+
+Features available:
+- Node information and status
+- Fork observer visualization
+
+### Accessing Grafana and Full Features
+
+By default, web01 is configured with `access_DANGER = "LIMITED_ACCESS"` which restricts certain features for security. 
+To access Grafana, monitoring dashboards, debug logs, and real-time WebSocket data without exposing them publicly, use an SSH tunnel.
+
+#### Method 1: SSH Tunnel to FULL_ACCESS (Recommended for Development)
+
+Create an SSH tunnel to the internal FULL_ACCESS server:
+
+```bash
+# From your local machine
+ssh -f -N -L 8002:localhost:8002 youruser@web01
+```
+
+**Flags explanation:**
+- `-f`: Run in background
+- `-N`: Don't execute remote commands (tunnel only)
+- `-L 8002:localhost:8002`: Forward local port 8002 to remote port 8002
+
+**To close the tunnel later:**
+```bash
+# Find the SSH process
+ps aux | grep "8002:localhost:8002"
+
+# Kill it
+kill <PID>
+```
+
+Then access in your browser:
+```
+http://localhost:8002/monitoring      # Grafana dashboards
+http://localhost:8002/addrman         # Address manager visualization
+http://localhost:8002/debug-logs      # Bitcoin Core debug logs
+http://localhost:8002/websocket       # Real-time WebSocket data
+```
+
+**Grafana Credentials:**
+- Username: `youruser` (configured in `infra.nix`)
+- Password: Retrieve from web01:
+  ```bash
+  ssh youruser@web01 "sudo cat /run/agenix/grafana-admin-password"
+  ```
+
+#### Available Routes in FULL_ACCESS Mode:
+
+| Route | Description | Port |
+|-------|-------------|------|
+| `/` | Main dashboard | 8002 |
+| `/monitoring` | Grafana dashboards (port 9321 proxied) | 8002 |
+| `/addrman` | Address manager visualization | 8002 |
+| `/debug-logs` | Bitcoin Core debug logs from nodes | 8002 |
+| `/debug-logs/node01/` | Debug logs from node01 | 8002 |
+| `/forks` | Fork observer | 8002 |
+| `/websocket` | WebSocket interface | 8002 |
+| `/websocket/node01/` | Real-time data from node01 | 8002 |
+
+#### Method 2: Public FULL_ACCESS (Not Recommended for Production)
+
+**⚠️ WARNING:** This exposes internal node IPs and detailed monitoring data publicly.
+
+To enable full public access, modify `infra.nix`:
+
+```nix
+webservers = {
+  web01 = {
+    # ... other config ...
+    access_DANGER = "FULL_ACCESS";  # ⚠️ Exposes node IPs publicly
+    # ... rest of config ...
+  };
+};
+```
+
+Deploy the change:
+```bash
+nix develop
+deploy web01
+```
+
+Then access directly:
+```
+https://observer.yourdomain.xyz/monitoring
+https://observer.yourdomain.xyz/addrman
+https://observer.yourdomain.xyz/debug-logs
+```
+
+**Important Security Considerations:**
+- FULL_ACCESS mode reveals the private WireGuard IPs of your observation nodes
+- Debug logs may contain sensitive information about your Bitcoin node configuration
+- Only use FULL_ACCESS mode for public demo instances or development environments
+- For production monitoring, use the SSH tunnel method (Method 1)
+
+### Understanding LIMITED_ACCESS vs FULL_ACCESS
+
+The `access_DANGER` setting in `infra.nix` controls which features are publicly accessible:
+
+**LIMITED_ACCESS (Default):**
+- Public dashboard at root `/`
+- Fork observer at `/forks`
+- No access to node IPs, debug logs, or detailed metrics
+- Suitable for public deployments
+
+**FULL_ACCESS:**
+- All LIMITED_ACCESS features
+- Grafana monitoring dashboards
+- Address manager visualization
+- Bitcoin Core debug logs
+- Real-time WebSocket data streams
+- **Exposes internal node IPs and configurations**
+- Only suitable for private/demo deployments
+
+### Grafana Configuration
+
+Grafana is pre-configured with:
+- Admin user: `youruser` (from `infra.nix`)
+- Admin password: Encrypted with agenix in `grafana-admin-password-web01.age`
+- Listening on: `127.0.0.1:9321` (not directly accessible)
+- Accessible via: nginx proxy at `/monitoring`
+
+To change the Grafana admin password:
+```bash
+cd secrets
+EDITOR=nano agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
+# Enter new password, save and close
+
+# Deploy the change
+deploy web01
+```
 
 ---
 

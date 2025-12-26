@@ -1,4 +1,4 @@
-# peer-observer-infra-library
+# peer-observer Infra Library
 
 A NixOS flake providing library functionality for running peer-observer instances.
 
@@ -14,7 +14,10 @@ This creates a basic template with configuration files to get you started.
 
 ## What This Library Provides
 
-The peer-observer-infra-library enables you to deploy and manage Bitcoin peer observation infrastructure using NixOS. It provides:
+The peer-observer-infra-library enables you to deploy and manage Bitcoin peer-observer 
+infrastructure using NixOS. 
+
+It provides:
 
 ### Node Infrastructure
 - **Bitcoin Core nodes** with customizable configurations

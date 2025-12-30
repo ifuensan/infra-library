@@ -294,7 +294,7 @@ cd secrets
 cat ../wireguard-keys/web01-private.key | agenix -e wireguard-private-key-web01.age -i ~/.ssh/id_ed25519
 
 # Create and encrypt Grafana password
-EDITOR=nano agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
+EDITOR=vi agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
 # Enter a secure password, save and close
 
 # Verify secrets exist
@@ -306,7 +306,7 @@ ls -lh *.age
 Add web01 to your local `/etc/hosts`:
 
 ```bash
-sudo nano /etc/hosts
+sudo vi /etc/hosts
 ```
 
 Add:
@@ -507,7 +507,7 @@ To update web01 configuration after deployment:
 
 ```bash
 # 1. Make changes to infra.nix or host configs
-nano infra.nix
+vi infra.nix
 
 # 2. Enter development shell
 nix develop
@@ -675,7 +675,7 @@ Grafana is pre-configured with:
 To change the Grafana admin password:
 ```bash
 cd secrets
-EDITOR=nano agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
+EDITOR=vi agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
 # Enter new password, save and close
 
 # Deploy the change

@@ -29,6 +29,25 @@ It provides:
 - **Fork-observer** to monitor blockchain forks across all connected nodes
 - **Addrman-observer** for address manager analysis
 
+## Project Structure
+
+```
+peer-infra-library/
+├── flake.nix                          # Main flake configuration
+├── infra.nix                          # Infrastructure definitions
+├── hosts/                             # nodes and frontend
+│   └── web01/
+│       ├── disko.nix                  # Disk partitioning config
+│       └── hardware-configuration.nix # Hardware-specific config
+├── secrets/
+│   ├── secrets.nix                    # Secret definitions (public keys)
+│   ├── wireguard-private-key-web01.age
+│   └── grafana-admin-password-web01.age
+└── wireguard-keys/                    # Temporary key storage (gitignored)
+    ├── web01-private.key
+    └── web01-public.key
+```
+
 ## Setting Up Your Infrastructure
 
 ### 1. Initialize Your Configuration

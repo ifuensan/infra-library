@@ -39,6 +39,8 @@ peer-infra-library/
 │   └── web01/
 │       ├── disko.nix                  # Disk partitioning config
 │       └── hardware-configuration.nix # Hardware-specific config
+│   └── node01/
+│       └── ...
 ├── secrets/
 │   ├── secrets.nix                    # Secret definitions (public keys)
 │   ├── wireguard-private-key-web01.age

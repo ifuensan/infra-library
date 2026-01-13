@@ -44,10 +44,12 @@ peer-infra-library/
 ├── secrets/
 │   ├── secrets.nix                    # Secret definitions (public keys)
 │   ├── wireguard-private-key-web01.age
+│   ├── ...
 │   └── grafana-admin-password-web01.age
 └── wireguard-keys/                    # Temporary key storage (gitignored)
     ├── web01-private.key
-    └── web01-public.key
+    ├── web01-public.key
+    └── ....
 ```
 
 ## Setting Up Your Infrastructure

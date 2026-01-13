@@ -61,8 +61,7 @@ nix flake init --template github:0xb10c/peer-observer-infra-library
 ```
 
 ### 2. Configure Your Infrastructure
-
-Edit `infra.nix` to define your setup:
+Define your setup:
 
 - **Global settings**: Admin user, SSH keys, and shared configuration
 - **Nodes**: Bitcoin observation nodes with unique IDs and WireGuard configuration
@@ -75,7 +74,96 @@ Key areas to configure:
 - Domain names for webservers
 - Hardware configuration modules
 
-### 3. Generate and Configure Secrets
+#### 2.1 Create Configuration Files
+TODO: https://github.com/nix-community/disko 
+This is especially useful for unattended installations, re-installation after a system crash or for setting up more than one identical server
+
+##### Create hosts/web01/disko.nix
+**IMPORTANT:** Use `/dev/nvme0n1` directly, not `/dev/disk/by-id/...` to avoid kexec issues.
+
+```nix
+let
+  swap = "4G";
+in
+{
+  disko.devices = {
+    disk = {
+      main = {
+        type = "disk";
+        device = "/dev/nvme0n1";  # Direct device path
+        content = {
+          type = "gpt";
+          partitions = {
+            boot = {
+              size = "1M";
+              type = "EF02";  # GRUB MBR
+            };
+            ESP = {
+              size = "512M";
+              type = "EF00";
+              content = {
+                type = "filesystem";
+                format = "vfat";
+                mountpoint = "/boot";
+                mountOptions = [ "umask=0077" ];
+              };
+            };
+            swap = {
+              size = swap;
+              type = "8200";
+              content = {
+                type = "swap";
+              };
+            };
+            root = {
+              size = "100%";
+              content = {
+                type = "filesystem";
+                format = "ext4";
+                mountpoint = "/";
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}
+```
+
+#### 3.2. Create `hosts/web01/hardware-configuration.nix`
+
+```nix
+{ config, lib, pkgs, modulesPath, ... }:
+{
+  imports = [
+    (modulesPath + "/profiles/qemu-guest.nix")
+  ];
+
+  boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "ahci" "sd_mod" ];
+  boot.initrd.kernelModules = [ ];
+  boot.kernelModules = [ ];
+  boot.extraModulePackages = [ ];
+
+  boot.loader.grub = {
+    enable = true;
+    efiSupport = true;
+    efiInstallAsRemovable = true;
+    device = "nodev";
+  };
+
+  networking.useDHCP = lib.mkDefault true;
+  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+}
+```
+
+**Key differences from auto-generated config:**
+- Includes `qemu-guest.nix` profile (not `hypervGuest`)
+- Includes `nvme` in kernel modules
+- Properly configured GRUB for EFI boot
+
+
+### 4. Generate and Configure Secrets
 
 Create age encryption keys and configure secrets in `secrets/secrets.nix`:
 
@@ -92,7 +180,7 @@ Configure encrypted secrets for:
 - Grafana admin passwords
 - Any additional sensitive configuration
 
-### 4. Set Up Hardware Configuration
+### 5. Set Up Hardware Configuration
 
 For each host, you'll need hardware configuration. Use one of these approaches:
 
@@ -111,7 +199,7 @@ nix run github:nix-community/nixos-anywhere -- \
   --build-on remote
 ```
 
-### 5. Deploy Your Infrastructure
+### 6. Deploy Your Infrastructure
 
 Enter the development shell with required tools:
 
@@ -134,7 +222,7 @@ nixos-rebuild switch \
   --show-trace
 ```
 
-### 6. Test Configuration (Optional)
+### 7. Test Configuration (Optional)
 
 Build VMs for testing before deployment:
 

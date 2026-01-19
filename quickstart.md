@@ -232,8 +232,59 @@ ls -lh *.age
 # Go to you root project directory
 cd ..
 ```
+### Step 7: Setup `infra.nix`
 
-### Step 6: Initial NixOS Installation
+Follow the instruction inside the `infra.nix` template. Be carefull with:
+- Setup your admin user:
+```bash
+    admin = {
+      username = "placeholder";
+      sshPubKeys = [
+        "ssh-rsa AAAAAAA..."
+        "ssh-ed25519 AAAAC..."
+      ];
+    };
+```
+- Configure your infrastructure definition with your specific values:
+```bash
+    node01 = {
+      id = 1;
+      wireguard = {
+        ip = "10.21.0.1";
+        pubkey = "fakekH7xb/DdO...";
+      };
+      setup = true;
+      arch = "x86_64-linux";
+      # FIXME:
+      # Feel free to set this to whatever you like. Note that this might be shown
+      # publicly.
+      description = ''
+        This is a placeholder description for node01. HTML is <b>supported<b>.
+      '';
+      # Bitcoin node configuration
+      bitcoind = {
+        net = {
+           useTor = false;
+           useI2P = false;
+           useASMap = true;
+        };
+      };
+      extraConfig = {  };
+      extraModules = [
+        disko.nixosModules.disko
+        ./hosts/node01-disko.nix
+        ./hosts/node01-hardware.nix
+      ];
+    };
+```
+Key values to update:
+- wgPublicKey: Output from cat secrets/web01-public.key
+- domain: Your actual domain with DNS pointing to the server
+- security.acme.defaults.email: Valid email for Let's Encrypt notifications
+
+Repeat similar configuration for each node (node01, node02, etc.) with their respective WireGuard addresses and keys.
+
+### Step 8: Initial NixOS Installation
 
 Use `nixos-anywhere` to convert Ubuntu to NixOS:
 
@@ -253,7 +304,7 @@ Use `--ssh-option "IdentityFile=/home/youruser/.ssh/peer-observer-key.pem"` for 
 5. Installs NixOS and GRUB bootloader
 6. Reboots into NixOS
 
-### Step 8: Verify Initial Installation
+### Step 9: Verify Initial Installation
 
 After reboot, SSH into the server:
 
@@ -268,7 +319,7 @@ systemctl status sshd
 ```
 At this point, only basic services are running (SSH, networking).
 
-### Step 9: Deploy Full Services
+### Step 10: Deploy Full Services
 
 Change `setup = false` in `infra.nix` to activate all services:
 
@@ -298,7 +349,7 @@ deploy web01
 **Duration:** 5-10 minutes.
 
 
-### Step 10: Verify Services
+### Step 11: Verify Services
 
 ```bash
 ssh youruser@web01
@@ -334,7 +385,7 @@ peer: WYVP74.........  # node01
   transfer: XX KiB received, XX KiB sent
 ```
 
-### Step 11: Access Dashboard
+### Step 12: Access Dashboard
 
 Open in browser and use your configured domain.
 

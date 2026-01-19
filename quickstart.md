@@ -162,184 +162,210 @@ in
 - Includes `nvme` in kernel modules
 - Properly configured GRUB for EFI boot
 
+### Step 5: Generate and Encrypt Secrets
 
-### 4. Generate and Configure Secrets
-
-Create age encryption keys and configure secrets in `secrets/secrets.nix`:
+#### 5.1. Generate WireGuard Keys
 
 ```bash
-# Generate an age key for yourself
-age-keygen -o mykey.agekey
+# Generate WireGuard key pair
+wg genkey | tee wireguard-keys/web01-private.key | wg pubkey > wireguard-keys/web01-public.key
 
-# Generate WireGuard keys for each host
-wg genkey | tee private.key | wg pubkey > public.key
+# View public key (update infra.nix with this)
+cat wireguard-keys/web01-public.key
 ```
 
-Configure encrypted secrets for:
-- WireGuard private keys for each host
-- Grafana admin passwords
-- Any additional sensitive configuration
+#### 5.2. Get SSH Host Key
 
-### 5. Set Up Hardware Configuration
+After initial deployment, get the server's SSH host key:
 
-For each host, you'll need hardware configuration. Use one of these approaches:
-
-#### Option A: Generate hardware config on existing NixOS system
 ```bash
-nixos-generate-config hosts/node01/hardware-configuration.nix
+ssh youruser@web01 "cat /etc/ssh/ssh_host_ed25519_key.pub"
 ```
 
-#### Option B: Use nixos-anywhere for remote deployment
+Example output:
+```
+ssh-ed25519 AAAAC3N......... root@web01
+```
+
+#### 5.3. Update `secrets/secrets.nix`
+
+**CRITICAL:** Use SSH keys, not age keys, for agenix recipients.
+
+```nix
+let
+  # Your personal SSH key (for encrypting/decrypting)
+  user = "ssh-ed25519 AAAAC3N..... youruser@yourdomain.com";
+  
+  # Server SSH host keys (obtained after deployment)
+  web01 = "ssh-ed25519 AAAAC3N.....;
+in
+{
+  "wireguard-private-key-web01.age".publicKeys = [
+    web01
+    user
+  ];
+  
+  "grafana-admin-password-web01.age".publicKeys = [
+    web01
+    user
+  ];
+}
+```
+
+#### 5.4. Encrypt Secrets
+
+```bash
+cd secrets
+
+# Encrypt WireGuard private key
+cat ../wireguard-keys/web01-private.key | agenix -e wireguard-private-key-web01.age -i ~/.ssh/id_ed25519
+
+# Create and encrypt Grafana password
+EDITOR=vi agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
+# Enter a secure password, save and close
+
+# Verify secrets exist
+ls -lh *.age
+```
+
+### Step 6: Configure Local SSH
+
+Add web01 to your local `/etc/hosts`:
+
+```bash
+sudo vi /etc/hosts
+```
+
+Add:
+```
+3.214.XXX.XXX    web01
+```
+
+Or configure `~/.ssh/config`:
+
+```bash
+Host web01
+    HostName 3.214.XXX.XXX
+    User youruser
+    IdentityFile ~/.ssh/peer-observer-key.pem
+```
+
+### Step 7: Initial NixOS Installation
+
+Use `nixos-anywhere` to convert Ubuntu to NixOS:
+
 ```bash
 nix run github:nix-community/nixos-anywhere -- \
-  --generate-hardware-config nixos-generate-config hosts/node01/hardware-configuration.nix \
-  --flake .#node01 \
-  --target-host <host-ip> \
-  --disko-mode disko \
-  --build-on remote
+  --flake .#web01 \
+  --build-on-remote \
+  root@3.214.15.113 \
+  --ssh-option "IdentityFile=/home/youruser/.ssh/peer-observer-key.pem"
 ```
 
-### 6. Deploy Your Infrastructure
+**What happens:**
+1. Uploads install SSH keys
+2. Switches to kexec (NixOS installer in RAM)
+3. Partitions disk according to `disko.nix`
+4. Builds NixOS system configuration
+5. Installs NixOS and GRUB bootloader
+6. Reboots into NixOS
 
-Enter the development shell with required tools:
+**Duration:** 15-30 minutes depending on network and CPU.
+
+
+### Step 8: Verify Initial Installation
+
+After reboot, SSH into the server:
 
 ```bash
+ssh youruser@web01
+
+# Verify NixOS
+nixos-version
+
+# Check basic services
+systemctl status sshd
+```
+At this point, only basic services are running (SSH, networking).
+
+### Step 9: Deploy Full Services
+
+Change `setup = false` in `infra.nix` to activate all services:
+
+```nix
+web01 = {
+  setup = false;  # Activate nginx, grafana, wireguard, etc.
+  ...
+}
+```
+
+Deploy the full configuration:
+
+```bash
+# Enter development shell
 nix develop
+
+# Deploy using the built-in function
+deploy web01
 ```
 
-Deploy to your hosts:
+**What happens:**
+1. Copies new system configuration to web01
+2. Decrypts secrets using agenix
+3. Activates services: WireGuard, nginx, Grafana, Prometheus
+4. Reloads systemd units
+
+**Duration:** 5-10 minutes.
+
+
+### Step 10: Verify Services
 
 ```bash
-# Deploy a specific host
-deploy node01
+ssh youruser@web01
 
-# Or use nixos-rebuild directly
-nixos-rebuild switch \
-  --flake .#node01 \
-  --target-host node01 \
-  --build-host node01 \
-  --sudo \
-  --show-trace
+# Check WireGuard
+sudo wg show
+
+# Check nginx
+systemctl status nginx
+sudo ss -tlnp | grep -E "(80|443)"
+
+# Check Grafana
+systemctl status grafana
+
+# Check SSL certificate
+systemctl status acme-observer.yourdomain.xyz.service
+
+# Test connectivity to node01 (if configured)
+ping -c 3 10.21.0.1
 ```
 
-### 7. Test Configuration (Optional)
+Expected output for WireGuard:
+```
+interface: wg-peerobserver
+  public key: IByMint............
+  private key: (hidden)
+  listening port: 51820
 
-Build VMs for testing before deployment:
-
-```bash
-build-vm node01
+peer: WYVP74.........  # node01
+  endpoint: 172.31.XX.XX:44192
+  allowed ips: 10.21.0.1/32
+  latest handshake: X seconds ago
+  transfer: XX KiB received, XX KiB sent
 ```
 
-## Architecture Overview
+### Step 11: Access Dashboard
 
-### Infrastructure Layout
-
+Open in browser:
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     Node 01     │    │     Node 02     │    │   Webserver 01  │
-│                 │    │                 │    │                 │
-│ • Bitcoin Core  │    │ • Bitcoin Core  │    │ • Nginx         │
-│ • Peer Observer │    │ • Peer Observer │    │ • Grafana       │
-│ • NATS Server   │◄───┤ • NATS Server   │◄───┤ • Prometheus    │
-│ • WireGuard     │    │ • WireGuard     │    │ • Fork Observer │
-└─────────────────┘    └─────────────────┘    │ • Frontend      │
-                                              │ • WireGuard     │
-                                              └─────────────────┘
+https://observer.yourdomain.xyz
 ```
 
-### Communication Flow
+You should see:
+- Dashboard homepage with node information
+- SSL certificate valid (Let's Encrypt)
+- No browser warnings
 
-1. **Bitcoin nodes** run peer-observer extractors that monitor network activity
-2. **NATS messaging** coordinates data collection between components
-3. **WireGuard VPN** securely connects all infrastructure components
-4. **Webservers** aggregate data from all nodes for visualization and analysis
-5. **Prometheus/Grafana** provide metrics collection and dashboards
-
-## Configuration Examples
-
-### Basic Node Configuration
-
-```nix
-nodes = {
-  node01 = {
-    id = 1;
-    arch = "x86_64-linux";
-    description = "Primary observation node";
-    wireguard = {
-      ip = "10.21.0.1";
-      pubkey = "your-wireguard-public-key";
-    };
-    bitcoind = {
-      net = {
-        useTor = true;
-        useI2P = true;
-        useASMap = true;
-      };
-    };
-    extraModules = [
-      ./hosts/node01/hardware-configuration.nix
-    ];
-  };
-};
-```
-
-### Custom Bitcoin Configuration
-
-```nix
-bitcoind = {
-  # Use custom Bitcoin Core build
-  package = customBitcoind {
-    system = "x86_64-linux";
-    overrides = {
-      gitURL = "https://github.com/bitcoin/bitcoin.git";
-      gitBranch = "master";
-      gitCommit = "abc123...";
-    };
-  };
-  
-  # Network configuration
-  net = {
-    useTor = true;
-    useI2P = true;
-    useASMap = true;
-  };
-  
-  # Ban specific IP ranges
-  banlistScript = ''
-    bitcoin-cli setban 192.168.1.0/24 add 31536000
-  '';
-};
-```
-
-### Webserver with Custom Domain
-
-```nix
-webservers = {
-  web01 = {
-    id = 1;
-    arch = "x86_64-linux";
-    domain = "observer.yourdomain.com";
-    description = "Public observation frontend";
-    
-    wireguard = {
-      ip = "10.21.1.1";
-      pubkey = "your-webserver-wireguard-key";
-    };
-    
-    grafana.admin_user = "admin";
-    access_DANGER = "LIMITED_ACCESS"; # or "FULL_ACCESS"
-    
-    extraConfig = {
-      security.acme.acceptTerms = true;
-      security.acme.defaults.email = "admin@yourdomain.com";
-    };
-    
-    extraModules = [
-      ./hosts/web01/hardware-configuration.nix
-    ];
-  };
-};
-```
 
 ## Security Considerations
 

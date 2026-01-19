@@ -67,6 +67,8 @@ Key areas to configure:
 ##### Create hosts/web01/disko.nix
 We are using for Declarative disk partitioning [disko.nix](https://github.com/nix-community/disko). This is especially useful for unattended installations, re-installation after a system crash or for setting up more than one identical server.
 
+Use `sudo fdisk -l` in machine to view wich is your principal disk device (i.e. `/dev/sda` o `/dev/nvme0n1` , etc.)
+
 ```nix
 let
   swap = "4G";
@@ -76,7 +78,7 @@ in
     disk = {
       main = {
         type = "disk";
-        device = "/dev/nvme0n1";  # Direct device path
+        device = "/dev/nvme0n1";  # Direct device path, replice with yours.
         content = {
           type = "gpt";
           partitions = {

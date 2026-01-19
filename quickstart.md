@@ -21,7 +21,7 @@ It provides:
 - **Addrman-observer** for address manager analysis
 
 ### Project Structure
-
+Be carefull with you private configuration and secret key don't push it to git.
 ```
 peer-infra-library/
 ├── flake.nix                          # Main flake configuration
@@ -36,11 +36,9 @@ peer-infra-library/
 │   ├── secrets.nix                    # Secret definitions (public keys)
 │   ├── wireguard-private-key-web01.age
 │   ├── ...
+│   ├── web01-private.key
+│   ├── web01-public.key
 │   └── grafana-admin-password-web01.age
-└── wireguard-keys/                    # Temporary key storage (gitignored)
-    ├── web01-private.key
-    ├── web01-public.key
-    └── ....
 ```
 
 ## Setting Up Your Infrastructure

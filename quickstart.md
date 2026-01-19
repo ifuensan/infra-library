@@ -242,9 +242,6 @@ nix run github:nix-community/nixos-anywhere -- \
 5. Installs NixOS and GRUB bootloader
 6. Reboots into NixOS
 
-**Duration:** 15-30 minutes depending on network and CPU.
-
-
 ### Step 8: Verify Initial Installation
 
 After reboot, SSH into the server:
@@ -328,43 +325,33 @@ peer: WYVP74.........  # node01
 
 ### Step 11: Access Dashboard
 
-Open in browser:
+Open in browser and use your configured domain.
+
+By default, webserver is configured with `access_DANGER = "LIMITED_ACCESS"` which restricts certain features for security.
+To access Grafana, monitoring dashboards, debug logs, and real-time WebSocket data without exposing them publicly, use an SSH tunnel.
+
+```bash
+# From your local machine
+ssh -f -N -L 8002:localhost:8002 youruser@web01
 ```
-https://observer.yourdomain.xyz
+
+Then access in your browser:
+```
+http://localhost:8002/monitoring      # Grafana dashboards
+http://localhost:8002/addrman         # Address manager visualization
+http://localhost:8002/debug-logs      # Bitcoin Core debug logs
+http://localhost:8002/websocket       # Real-time WebSocket data
 ```
 
-You should see:
-- Dashboard homepage with node information
-- SSL certificate valid (Let's Encrypt)
-- No browser warnings
+| Route | Description | Port |
+|-------|-------------|------|
+| `/` | Main dashboard | 8002 |
+| `/monitoring` | Grafana dashboards (port 9321 proxied) | 8002 |
+| `/addrman` | Address manager visualization | 8002 |
+| `/debug-logs` | Bitcoin Core debug logs from nodes | 8002 |
+| `/debug-logs/node01/` | Debug logs from node01 | 8002 |
+| `/forks` | Fork observer | 8002 |
+| `/websocket` | WebSocket interface | 8002 |
+| `/websocket/node01/` | Real-time data from node01 | 8002 |
 
 
-## Security Considerations
-
-- **Limited Access Mode**: By default, webservers run in LIMITED_ACCESS mode to prevent IP address leakage
-- **SSH Key Authentication**: Password login is disabled; only SSH key authentication is allowed
-- **WireGuard VPN**: All inter-host communication is encrypted via WireGuard
-- **ACME Certificates**: Automatic SSL certificate generation and renewal
-- **Firewall**: Restrictive firewall rules with only necessary ports open
-
-## Available Commands
-
-When in the development shell (`nix develop`):
-
-- `deploy <host>` - Deploy configuration to a specific host
-- `build-vm <host>` - Build a VM for testing configuration
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Missing hardware configuration**: Ensure hardware-configuration.nix exists for each host
-2. **WireGuard connection failures**: Verify public/private key pairs and IP addresses
-3. **Domain not resolving**: Ensure DNS records point to webserver IP addresses
-4. **Secret decryption errors**: Check that age keys are properly configured
-
-### Getting Help
-
-- Review the [module documentation](https://0xb10c.github.io/peer-observer-infra-library/)
-- Check NixOS logs: `journalctl -u <service-name>`
-- Validate configuration: `nix flake check`

@@ -154,19 +154,25 @@ in
 
 #### 5.1. Generate WireGuard Keys
 
+Install the wireguard-tools package.
+
 ```bash
 # Generate WireGuard key pair
-wg genkey | tee wireguard-keys/web01-private.key | wg pubkey > wireguard-keys/web01-public.key
+wg genkey | tee secrets/web01-private.key | wg pubkey > secrets/web01-public.key
 
 # View public key (update infra.nix with this)
-cat wireguard-keys/web01-public.key
+cat secrets/web01-public.key
 ```
 
-You need generate the Wireguard keys for all your nodes (node01, nod02, etc.)-
+You need generate the Wireguard keys for all your nodes (node01, node02, etc.)
 
 #### 5.2. Get SSH Host Key
 
-After initial deployment, get the server's SSH host key:
+### Step 6: Configure your local
+
+Add your servers name and IP to your local `/etc/hosts` or Or configure `~/.ssh/config`.
+
+Get the server's SSH host key:
 
 ```bash
 ssh youruser@web01 "cat /etc/ssh/ssh_host_ed25519_key.pub"
@@ -177,9 +183,15 @@ Example output:
 ssh-ed25519 AAAAC3N......... root@web01
 ```
 
+Get your personal SSH Key:
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+If you don't have one you'll need to generate.
+
 #### 5.3. Update `secrets/secrets.nix`
 
-**CRITICAL:** Use SSH keys, not age keys, for agenix recipients.
+Use here you SSH keys, not age keys, for agenix recipients. Setup the names of your nodes and webserver as you need it. Read the instruccionts in the secret.nix file.
 
 ```nix
 let
@@ -204,11 +216,13 @@ in
 
 #### 5.4. Encrypt Secrets
 
+Use `nix develop` to enter the Nix development shell.
+
 ```bash
 cd secrets
 
 # Encrypt WireGuard private key
-cat ../wireguard-keys/web01-private.key | agenix -e wireguard-private-key-web01.age -i ~/.ssh/id_ed25519
+cat web01-private.key | agenix -e wireguard-private-key-web01.age -i ~/.ssh/id_ed25519
 
 # Create and encrypt Grafana password
 EDITOR=vi agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
@@ -216,13 +230,12 @@ EDITOR=vi agenix -e grafana-admin-password-web01.age -i ~/.ssh/id_ed25519
 
 # Verify secrets exist
 ls -lh *.age
+
+# Go to you root project directory
+cd ..
 ```
 
-### Step 6: Configure Local SSH
-
-Add your servers name to your local `/etc/hosts` or Or configure `~/.ssh/config`.
-
-### Step 7: Initial NixOS Installation
+### Step 6: Initial NixOS Installation
 
 Use `nixos-anywhere` to convert Ubuntu to NixOS:
 
@@ -230,9 +243,9 @@ Use `nixos-anywhere` to convert Ubuntu to NixOS:
 nix run github:nix-community/nixos-anywhere -- \
   --flake .#web01 \
   --build-on-remote \
-  root@3.214.XXX.XXX \
-  --ssh-option "IdentityFile=/home/youruser/.ssh/peer-observer-key.pem"
+  [user]@web01
 ```
+Use `--ssh-option "IdentityFile=/home/youruser/.ssh/peer-observer-key.pem"` for VPS with this requierment, like AWS.
 
 **What happens:**
 1. Uploads install SSH keys

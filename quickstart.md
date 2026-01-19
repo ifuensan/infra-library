@@ -1,15 +1,6 @@
-# Quick Start Guide
+# Setup Guide
 
-Initialize a new peer-observer infrastructure using the template:
-
-```bash
-nix flake init --template github:0xb10c/peer-observer-infra-library
-```
-
-This creates a basic template with configuration files to get you started.
-
-## What This Library Provides
-
+## Introduction
 The peer-observer-infra-library enables you to deploy and manage Bitcoin peer-observer 
 infrastructure using NixOS. 
 
@@ -29,7 +20,7 @@ It provides:
 - **Fork-observer** to monitor blockchain forks across all connected nodes
 - **Addrman-observer** for address manager analysis
 
-## Project Structure
+### Project Structure
 
 ```
 peer-infra-library/
@@ -62,7 +53,6 @@ nix flake init --template github:0xb10c/peer-observer-infra-library
 
 ### 2. Configure Your Infrastructure
 Define your setup:
-
 - **Global settings**: Admin user, SSH keys, and shared configuration
 - **Nodes**: Bitcoin observation nodes with unique IDs and WireGuard configuration
 - **Webservers**: Frontend interfaces with domains and Grafana access
@@ -75,11 +65,9 @@ Key areas to configure:
 - Hardware configuration modules
 
 #### 2.1 Create Configuration Files
-TODO: https://github.com/nix-community/disko 
-This is especially useful for unattended installations, re-installation after a system crash or for setting up more than one identical server
 
 ##### Create hosts/web01/disko.nix
-**IMPORTANT:** Use `/dev/nvme0n1` directly, not `/dev/disk/by-id/...` to avoid kexec issues.
+We are using for Declarative disk partitioning [disko.nix](https://github.com/nix-community/disko). This is especially useful for unattended installations, re-installation after a system crash or for setting up more than one identical server.
 
 ```nix
 let
@@ -174,6 +162,8 @@ wg genkey | tee wireguard-keys/web01-private.key | wg pubkey > wireguard-keys/we
 cat wireguard-keys/web01-public.key
 ```
 
+You need generate the Wireguard keys for all your nodes (node01, nod02, etc.)-
+
 #### 5.2. Get SSH Host Key
 
 After initial deployment, get the server's SSH host key:
@@ -230,25 +220,7 @@ ls -lh *.age
 
 ### Step 6: Configure Local SSH
 
-Add web01 to your local `/etc/hosts`:
-
-```bash
-sudo vi /etc/hosts
-```
-
-Add:
-```
-3.214.XXX.XXX    web01
-```
-
-Or configure `~/.ssh/config`:
-
-```bash
-Host web01
-    HostName 3.214.XXX.XXX
-    User youruser
-    IdentityFile ~/.ssh/peer-observer-key.pem
-```
+Add your servers name to your local `/etc/hosts` or Or configure `~/.ssh/config`.
 
 ### Step 7: Initial NixOS Installation
 
@@ -258,7 +230,7 @@ Use `nixos-anywhere` to convert Ubuntu to NixOS:
 nix run github:nix-community/nixos-anywhere -- \
   --flake .#web01 \
   --build-on-remote \
-  root@3.214.15.113 \
+  root@3.214.XXX.XXX \
   --ssh-option "IdentityFile=/home/youruser/.ssh/peer-observer-key.pem"
 ```
 
